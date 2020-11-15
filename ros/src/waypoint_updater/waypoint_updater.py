@@ -1,11 +1,13 @@
 #!/usr/bin/env python
 
+import numpy as np
 import rospy
 from geometry_msgs.msg import PoseStamped
+from std_msgs.msg import Int32
 from styx_msgs.msg import Lane, Waypoint
-from scipy.partial import KDTree
-
+from scipy.spatial import KDTree
 import math
+
 
 '''
 This node will publish waypoints from the car's current position to some `x` distance ahead.
@@ -28,7 +30,6 @@ LOOKAHEAD_WPS = 200 # Number of waypoints we will publish. You can change this n
 class WaypointUpdater(object):
     def __init__(self):
         rospy.init_node('waypoint_updater')
-
         rospy.Subscriber('/current_pose', PoseStamped, self.pose_cb) # subscriber to store pose, gets updated freq
         rospy.Subscriber('/base_waypoints', Lane, self.waypoints_cb) # subscriber to get base wasy points
         # setup as latched subscriber, meaning once the callback is called it doesnt send base_waypoints anymore
@@ -37,45 +38,43 @@ class WaypointUpdater(object):
         #TODO: Adding a subscriber for /traffic_waypoint and /obstacle_waypoint below
 
         self.final_waypoints_pub = rospy.Publisher('final_waypoints', Lane, queue_size=1)
-
         # Initializing other member variables used below
         self.pose = None
         self.base_waypoints = None
         self.waypoints_2d = None
         self.waypoint_tree = None
-
         #rospy.spin()
         self.loop() # adds cycling action at specified frequency
-
+        
     def loop(self):
         rate = rospy.Rate(50) # looping at 50hz
         while not rospy.is_shutdown():
-            if self.pose and self.base_waypoints: # if we have pose, base wp
-                closest_waypoint_idx = self.get_closest_waypoints_idx() # getting closest wp
-                self.publish_waypoints(closest_waypoints_idx) #publishing message
+            if self.pose and self.waypoint_tree: # if we have pose, base wp
+                closest_waypoint_idx = self.get_closest_waypoint_idx() # getting closest wp
+                self.publish_waypoints(closest_waypoint_idx) #publishing message
             rate.sleep()
     
-        def get_closest_waypoint_idx(self):
-            x = self.pose.pose.position.x
-            y = self.pose.pose.position.y
-            closest_idx = self.waypoint_tree.query([x, y], 1)[1] # returns closest distance and index 
-            # index is same as order in which its added to tree i.e., index in base wps
+    def get_closest_waypoint_idx(self):
+        x = self.pose.pose.position.x
+        y = self.pose.pose.position.y
+        closest_idx = self.waypoint_tree.query([x, y], 1)[1] # returns closest distance and index 
+        # index is same as order in which its added to tree i.e., index in base wps
 
-            # checking if closest is ahead or behind vehicle
-            closest_coord = self.waypoints_2d[closest_idx]
-            prev_coord = self.waypoints_2d[closest_idx - 1]
+        # checking if closest is ahead or behind vehicle
+        closest_coord = self.waypoints_2d[closest_idx]
+        prev_coord = self.waypoints_2d[closest_idx - 1]
 
-            cl_vect = np.array(closest_coord)
-            prev_vect = np.array(prev_coord)
-            pos_vect = np.array([x, y])
-            # imagining a hyperplane perpendicular to the vetor joining cl and prev
-            # calculating dot prod of vehi pose wrt hyperplane
-            val = np.dot(cl_vect - prev_vect, pos_vect - cl_vect)
+        cl_vect = np.array(closest_coord)
+        prev_vect = np.array(prev_coord)
+        pos_vect = np.array([x, y])
+        # imagining a hyperplane perpendicular to the vetor joining cl and prev
+        # calculating dot prod of vehi pose wrt hyperplane
+        val = np.dot(cl_vect - prev_vect, pos_vect - cl_vect)
 
-            if val > 0: # when waypoints is behind us
-                closest_idx = (closest_idx + 1) % len(self.waypoints_2d) # updating closest point to next point
-                #rospy.logwarn("closest_idx={}".format(closest_idx))
-            return closest_idx
+        if val > 0: # when waypoints is behind us
+            closest_idx = (closest_idx + 1) % len(self.waypoints_2d) # updating closest point to next point
+            #rospy.logwarn("closest_idx={}".format(closest_idx))
+        return closest_idx
     
     def publish_waypoints(self, closest_idx): # publish function
         lane = Lane() # message type needs to be a lane
@@ -92,7 +91,7 @@ class WaypointUpdater(object):
     def waypoints_cb(self, waypoints): 
         self.base_waypoints = waypoints # storing base in waypoints obj
         if not self.waypoints_2d:
-            self.waypoints_2d = [[waypoints.pose.pose.position.x, waypoint.pose.pose.position.y] for waypoint in waypoints.waypoints]
+            self.waypoints_2d = [[waypoint.pose.pose.position.x, waypoint.pose.pose.position.y] for waypoint in waypoints.waypoints]
             self.waypoint_tree = KDTree(self.waypoints_2d)                 
         pass
 
