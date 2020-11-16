@@ -56,7 +56,7 @@ class DBWNode(object):
 
         # creating 'Controller` object
         self.controller = Controller(vehicle_mass, fuel_capacity, brake_deadband, decel_limit, 
-                                     accel_limit, wheel_radius, steer_ratio, max_lat_accel, max_steer_angle)
+                                     accel_limit, wheel_radius, wheel_base, steer_ratio, max_lat_accel, max_steer_angle)
 
         # Subscribing to all the topics needed
         rospy.Subscriber('/vehicle/dbw_enabled', Bool, self.dbw_enabled_cb) #drive-by-wire or manual
@@ -85,7 +85,22 @@ class DBWNode(object):
             if self.dbw_enabled:
               self.publish(self.throttle, self.brake, self.steering)
             rate.sleep()
+            
+    
+    def dbw_enabled_cb(self, msg):
+        self.dbw_enabled = msg
+        
+    def twist_cb(self, msg):
+        self.linear_vel = msg.twist.linear.x
+        self.angular_vel = msg.twist.angular.z
+        
+    def velocity_cb(self, msg):
+        self.current_vel = msg.twist.linear.x
 
+#         if self.dbw_enabled and self.current_vel is not None:
+#             self.speed_data.append({'actual': self.current_vel,
+#                                        'proposed': self.linear_vel})
+            
     def publish(self, throttle, brake, steer):
         tcmd = ThrottleCmd()
         tcmd.enable = True
