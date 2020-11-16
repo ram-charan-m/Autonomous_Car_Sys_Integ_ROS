@@ -10,18 +10,12 @@ import math
 
 
 '''
+NODE DESCRIPTION: 
 This node will publish waypoints from the car's current position to some `x` distance ahead.
-
-As mentioned in the doc, you should ideally first implement a version which does not care
-about traffic lights or obstacles.
-
-Once you have created dbw_node, you will update this node to use the status of traffic lights too.
-
-Please note that our simulator also provides the exact location of traffic lights and their
-current status in `/vehicle/traffic_lights` message. You can use this message to build this node
-as well as to verify your TL classifier.
-
-TODO (for Yousuf and Aaron): Stopline location for each traffic light.
+First implemented a version which does not care about traffic lights or obstacles.
+Later updated to use the status of traffic lights, post dbw_node completion.
+The simulator provides the exact location of traffic lights and their current status in `/vehicle/traffic_lights` message. 
+This can be used for sim testing as well as to verify the TL classifier.
 '''
 
 LOOKAHEAD_WPS = 40 # Number of waypoints we will publish. You can change this number
@@ -33,14 +27,13 @@ STOPPING_LEEWAY = 3
 class WaypointUpdater(object):
     def __init__(self):
         rospy.init_node('waypoint_updater')
+        
+        # Adding relevant subscribers 
         rospy.Subscriber('/current_pose', PoseStamped, self.pose_cb) # subscriber to store pose, gets updated freq
         rospy.Subscriber('/base_waypoints', Lane, self.waypoints_cb) # subscriber to get base wasy points
         # setup as latched subscriber, meaning once the callback is called it doesnt send base_waypoints anymore
         # As publishers operate in a frequency, it will be very inefficient to copy constant base waypoints
-
-        #TODO: Adding a subscriber for /traffic_waypoint and /obstacle_waypoint below
         rospy.Subscriber('/traffic_waypoint', Int32, self.traffic_cb)
-#         rospy.Subscriber('/obstacle_waypoint', <msg_type>, self.obstacle_cb)
 
         self.final_waypoints_pub = rospy.Publisher('final_waypoints', Lane, queue_size=1)
         # Initializing other member variables used below
@@ -85,7 +78,6 @@ class WaypointUpdater(object):
     
     def publish_waypoints(self, closest_idx): # publish function
         final_lane = self.generate_lane() # message type needs to be a lane
-        #lane.header = self.base_waypoints.header
         self.final_waypoints_pub.publish(final_lane)
         
     def generate_lane(self): # generates lane type data based on traffic light detection
@@ -133,10 +125,6 @@ class WaypointUpdater(object):
         # Callback for /traffic_waypoint message
         self.stopline_wp_idx = msg.data
         
-
-    def obstacle_cb(self, msg):
-        pass
-
     def get_waypoint_velocity(self, waypoint):
         return waypoint.twist.twist.linear.x
 
@@ -150,7 +138,6 @@ class WaypointUpdater(object):
             dist += dl(waypoints[wp1].pose.pose.position, waypoints[i].pose.pose.position)
             wp1 = i
         return dist
-
 
 if __name__ == '__main__':
     try:

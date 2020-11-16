@@ -33,7 +33,7 @@ class TLDetector(object):
         helps acquire an accurate ground truth data source for the traffic light
         classifier by sending the current color state of all traffic lights in the
         simulator. This was used initially to test the node operation.
-        When testing on the vehicle, the color state will not be available. You'll need to
+        When testing on the vehicle, the color state will not be available; need to
         rely on the position of the light and the camera image to predict it.
         '''
         sub3 = rospy.Subscriber('/vehicle/traffic_lights', TrafficLightArray, self.traffic_cb)
