@@ -25,6 +25,9 @@ TODO (for Yousuf and Aaron): Stopline location for each traffic light.
 '''
 
 LOOKAHEAD_WPS = 40 # Number of waypoints we will publish. You can change this number
+MAX_DECEL = 0.5
+PUBLISH_RATE = 30
+STOPPING_LEEWAY = 3
 
 
 class WaypointUpdater(object):
@@ -42,14 +45,16 @@ class WaypointUpdater(object):
         self.final_waypoints_pub = rospy.Publisher('final_waypoints', Lane, queue_size=1)
         # Initializing other member variables used below
         self.pose = None
+        self.base_lane = None
         self.base_waypoints = None
         self.waypoints_2d = None
         self.waypoint_tree = None
+        self.stopline_wp_idx = -1
         #rospy.spin()
         self.loop() # adds cycling action at specified frequency
         
     def loop(self):
-        rate = rospy.Rate(25) # looping at 50hz
+        rate = rospy.Rate(PUBLISH_RATE)
         while not rospy.is_shutdown():
             if self.pose and self.waypoint_tree: # if we have pose, base wp
                 closest_waypoint_idx = self.get_closest_waypoint_idx() # getting closest wp
@@ -86,8 +91,9 @@ class WaypointUpdater(object):
     def generate_lane(self): # generates lane type data based on traffic light detection
         lane = Lane()
         
-        closest_idx = self.get_closest_wp_idx()
-        base_waypoints = self.base_lane.waypoints[closest_idx:closest_idx + LOOKAHEAD_WPS]
+        closest_idx = self.get_closest_waypoint_idx()
+        farthest_idx = closest_idx + LOOKAHEAD_WPS
+        base_waypoints = self.base_lane.waypoints[closest_idx:farthest_idx]
         
         if self.stopline_wp_idx == -1 or (self.stopline_wp_idx >= farthest_idx): # no index or outside our concern limit
             lane.waypoints = base_waypoints
@@ -101,7 +107,7 @@ class WaypointUpdater(object):
             p = Waypoint() # new waypoint message
             p.pose = wp.pose # setting new pose to base wp pose
             
-            stop_idx = max(self.stopline_wp_idx - closest_idx -3, 0) # 2 wp back from traffic line wp to avoid crossing line
+            stop_idx = max(self.stopline_wp_idx - closest_idx - STOPPING_LEEWAY, 0) # 2 wp back from traffic line wp to avoid crossing line
             dist = self.distance(waypoints, i, stop_idx)
             vel = math.sqrt(2*MAX_DECEL*dist)
             if vel < 1.0:
@@ -118,7 +124,7 @@ class WaypointUpdater(object):
     # this is call back function thats called everytime the subscriber publishes
     # it must store the base waypoints in a container(KDTree)
     def waypoints_cb(self, waypoints): 
-        self.base_waypoints = waypoints # storing base in waypoints obj
+        self.base_lane = waypoints # storing base in waypoints obj
         if not self.waypoints_2d:
             self.waypoints_2d = [[waypoint.pose.pose.position.x, waypoint.pose.pose.position.y] for waypoint in waypoints.waypoints]
             self.waypoint_tree = KDTree(self.waypoints_2d)                 
@@ -129,7 +135,6 @@ class WaypointUpdater(object):
         
 
     def obstacle_cb(self, msg):
-        # TODO: Callback for /obstacle_waypoint message. We will implement it later
         pass
 
     def get_waypoint_velocity(self, waypoint):
