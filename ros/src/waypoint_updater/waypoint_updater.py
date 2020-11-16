@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
-import numpy as np
 import rospy
+import numpy as np
 from geometry_msgs.msg import PoseStamped
 from std_msgs.msg import Int32
 from styx_msgs.msg import Lane, Waypoint
@@ -24,7 +24,7 @@ as well as to verify your TL classifier.
 TODO (for Yousuf and Aaron): Stopline location for each traffic light.
 '''
 
-LOOKAHEAD_WPS = 200 # Number of waypoints we will publish. You can change this number
+LOOKAHEAD_WPS = 40 # Number of waypoints we will publish. You can change this number
 
 
 class WaypointUpdater(object):
@@ -36,6 +36,8 @@ class WaypointUpdater(object):
         # As publishers operate in a frequency, it will be very inefficient to copy constant base waypoints
 
         #TODO: Adding a subscriber for /traffic_waypoint and /obstacle_waypoint below
+        rospy.Subscriber('/traffic_waypoint', Int32, self.traffic_cb)
+#         rospy.Subscriber('/obstacle_waypoint', <msg_type>, self.obstacle_cb)
 
         self.final_waypoints_pub = rospy.Publisher('final_waypoints', Lane, queue_size=1)
         # Initializing other member variables used below
@@ -47,7 +49,7 @@ class WaypointUpdater(object):
         self.loop() # adds cycling action at specified frequency
         
     def loop(self):
-        rate = rospy.Rate(50) # looping at 50hz
+        rate = rospy.Rate(25) # looping at 50hz
         while not rospy.is_shutdown():
             if self.pose and self.waypoint_tree: # if we have pose, base wp
                 closest_waypoint_idx = self.get_closest_waypoint_idx() # getting closest wp
@@ -77,15 +79,42 @@ class WaypointUpdater(object):
         return closest_idx
     
     def publish_waypoints(self, closest_idx): # publish function
-        lane = Lane() # message type needs to be a lane
+        final_lane = self.generate_lane() # message type needs to be a lane
         #lane.header = self.base_waypoints.header
-        lane.waypoints = self.base_waypoints.waypoints[closest_idx:closest_idx + LOOKAHEAD_WPS] # slicing for straight line until lookahead
-        self.final_waypoints_pub.publish(lane)
+        self.final_waypoints_pub.publish(final_lane)
+        
+    def generate_lane(self): # generates lane type data based on traffic light detection
+        lane = Lane()
+        
+        closest_idx = self.get_closest_wp_idx()
+        base_waypoints = self.base_lane.waypoints[closest_idx:closest_idx + LOOKAHEAD_WPS]
+        
+        if self.stopline_wp_idx == -1 or (self.stopline_wp_idx >= farthest_idx): # no index or outside our concern limit
+            lane.waypoints = base_waypoints
+        else:
+            lane.waypoints = self.decelerate_waypoints(base_waypoints, closest_idx)
+        return lane
+    
+    def decelerate_waypoints(self, waypoints, closest_idx):
+        temp =[]
+        for i, wp in enumerate(waypoints):
+            p = Waypoint() # new waypoint message
+            p.pose = wp.pose # setting new pose to base wp pose
+            
+            stop_idx = max(self.stopline_wp_idx - closest_idx -3, 0) # 2 wp back from traffic line wp to avoid crossing line
+            dist = self.distance(waypoints, i, stop_idx)
+            vel = math.sqrt(2*MAX_DECEL*dist)
+            if vel < 1.0:
+                vel = 0
+            
+            p.twist.twist.linear.x = min(vel, wp.twist.twist.linear.x) # avoid large vel at large dist
+            temp.append(p)
+            
+        return temp
     
     def pose_cb(self, msg):
         self.pose = msg
-        pass
-    
+
     # this is call back function thats called everytime the subscriber publishes
     # it must store the base waypoints in a container(KDTree)
     def waypoints_cb(self, waypoints): 
@@ -93,11 +122,11 @@ class WaypointUpdater(object):
         if not self.waypoints_2d:
             self.waypoints_2d = [[waypoint.pose.pose.position.x, waypoint.pose.pose.position.y] for waypoint in waypoints.waypoints]
             self.waypoint_tree = KDTree(self.waypoints_2d)                 
-        pass
 
     def traffic_cb(self, msg):
-        # TODO: Callback for /traffic_waypoint message. Implement
-        pass
+        # Callback for /traffic_waypoint message
+        self.stopline_wp_idx = msg.data
+        
 
     def obstacle_cb(self, msg):
         # TODO: Callback for /obstacle_waypoint message. We will implement it later

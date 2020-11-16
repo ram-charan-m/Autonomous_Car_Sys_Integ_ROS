@@ -8,7 +8,7 @@ ONE_MPH = 0.44704
 
 
 class Controller(object):
-    def __init__(self, vehicle_mass, fuel_capacity, brake_deadband, deceleration_limit, acceleration_limit,
+    def __init__(self, vehicle_mass, fuel_capacity, brake_deadband, decel_limit, accel_limit,
                  wheel_radius, wheel_base, steer_ratio, max_lat_accel, max_steer_angle):
         # Init lateral controller         
         self.yaw_controller = YawController(wheel_base=wheel_base, steer_ratio=steer_ratio, min_speed=0.1,
@@ -20,7 +20,7 @@ class Controller(object):
         ki = 0.1
         kd = 0.0
         mn = 0.0 # min throttle
-        mx = 0.2 # max throttle
+        mx = 0.5 # max throttle
         self.throttle_controller = PID(kp, ki, kd, mn, mx)
 
         tau = 0.5 # cutoff freq - 1/(2pi*tau)
@@ -30,8 +30,8 @@ class Controller(object):
         self.vehicle_mass = vehicle_mass
         self.fuel_capacity = fuel_capacity
         self.brake_deadband = brake_deadband
-        self.deceleration_limit = deceleration_limit
-        self.acceleration_limit = acceleration_limit
+        self.decel_limit = decel_limit
+        self.accel_limit = accel_limit
         self.wheel_radius = wheel_radius
         
 
@@ -68,7 +68,7 @@ class Controller(object):
             brake = 400 # complete stop at traffic light
         elif throttle < 0.1 and vel_error < 0: # throttle is very small and vel<0 -> we are going faster than we want to
             throttle = 0
-            deceleration = max(vel_error, self.deceleration_limit)
-            brake = abs(deceleration) * self.vehicle_mass * self.wheel_radius # braking accordingly
+            decel = max(vel_error, self.decel_limit)
+            brake = abs(decel) * self.vehicle_mass * self.wheel_radius # braking accordingly
 
         return throttle, brake, steering

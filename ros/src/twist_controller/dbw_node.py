@@ -54,9 +54,21 @@ class DBWNode(object):
         self.brake_pub = rospy.Publisher('/vehicle/brake_cmd',
                                          BrakeCmd, queue_size=1)
 
+        #####################################################################################################
         # creating 'Controller` object
         self.controller = Controller(vehicle_mass, fuel_capacity, brake_deadband, decel_limit, 
                                      accel_limit, wheel_radius, wheel_base, steer_ratio, max_lat_accel, max_steer_angle)
+        
+#                   self.controller = Controller(vehicle_mass=vehicle_mass,
+#                                     fuel_capacity=fuel_capacity,
+#                                     brake_deadband=brake_deadband,
+#                                     decel_limit=decel_limit,
+#                                     accel_limit=accel_limit,
+#                                     wheel_radius=wheel_radius,
+#                                     wheel_base=wheel_base,
+#                                     steer_ratio=steer_ratio,
+#                                     max_lat_accel=max_lat_accel,
+#                                     max_steer_angle=max_steer_angle)
 
         # Subscribing to all the topics needed
         rospy.Subscriber('/vehicle/dbw_enabled', Bool, self.dbw_enabled_cb) #drive-by-wire or manual
