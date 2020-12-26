@@ -10,6 +10,7 @@ from light_classification.tl_classifier import TLClassifier
 from scipy.spatial import KDTree
 import tf
 import cv2
+import math
 import yaml
 
 STATE_COUNT_THRESHOLD = 3
@@ -106,7 +107,7 @@ class TLDetector(object):
         """
         closest_idx = self.waypoint_tree.query([x, y], 1)[1]
         return closest_idx
-
+   
     def get_light_state(self, light):
         """Determines the current color of the traffic light
         Args:
@@ -115,18 +116,20 @@ class TLDetector(object):
             int: ID of traffic light color (specified in styx_msgs/TrafficLight)
         """
 
-        # sim testing
-        return light.state
+#         # sim testing
+#         return light.state
         
-#         # After implementing classsifier
-#         if(not self.has_image):
-#             self.prev_light_loc = None
-#             return False
+        # After implementing classsifier
+        # if no image
+        if(not self.has_image):
+            self.prev_light_loc = None
+            return False
 
-#         cv_image = self.bridge.imgmsg_to_cv2(self.camera_image, "bgr8")
-
-#         # Get classification
-#         return self.light_classifier.get_classification(cv_image)
+        cv_image = self.bridge.imgmsg_to_cv2(self.camera_image, "bgr8")
+        
+        # Get classification
+        return self.light_classifier.get_classification(cv_image)    
+   
 
     def process_traffic_lights(self):
         """Finds closest visible traffic light, if one exists, and determines its
